@@ -51,6 +51,7 @@ pub struct Handle {
 pub struct Builder {
     // Sequence of actions for the Mock to take
     actions: VecDeque<Action>,
+    assert_callback: fn(&[u8], &[u8]),
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +67,7 @@ enum Action {
 
 struct Inner {
     actions: VecDeque<Action>,
+    assert_callback: fn(&[u8], &[u8]),
     waiting: Option<Instant>,
     sleep: Option<Delay>,
     read_wait: Option<Waker>,
@@ -92,16 +94,22 @@ impl std::fmt::Debug for Inner {
     }
 }
 
+fn default_assert(actual: &[u8], expected: &[u8]) {
+    assert_eq!(actual, expected);
+}
+
 impl Default for Builder {
     fn default() -> Self {
         Self::new()
     }
 }
+
 impl Builder {
     /// Return a new, empty `Builder.
     pub fn new() -> Self {
         Self {
             actions: VecDeque::new(),
+            assert_callback: default_assert,
         }
     }
 
@@ -153,6 +161,12 @@ impl Builder {
         self
     }
 
+    /// Sets a custom assert callback for comparing actual and expected slices
+    pub fn set_assert_callback(&mut self, assert_callback: fn(&[u8], &[u8])) -> &mut Self {
+        self.assert_callback = assert_callback;
+        self
+    }
+
     /// Build a `Mock` value according to the defined script.
     pub fn build(&mut self) -> Mock {
         let (mock, _) = self.build_with_handle();
@@ -161,7 +175,7 @@ impl Builder {
 
     /// Build a `Mock` value paired with a handle
     pub fn build_with_handle(&mut self) -> (Mock, Handle) {
-        let (inner, handle) = Inner::new(self.actions.clone());
+        let (inner, handle) = Inner::new(self.actions.clone(), self.assert_callback);
 
         let mock = Mock { inner };
 
@@ -210,11 +224,12 @@ impl Handle {
 }
 
 impl Inner {
-    fn new(actions: VecDeque<Action>) -> (Inner, Handle) {
+    fn new(actions: VecDeque<Action>, assert_callback: fn(&[u8], &[u8])) -> (Inner, Handle) {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let inner = Inner {
             actions,
+            assert_callback,
             sleep: None,
             read_wait: None,
             rx,
@@ -281,7 +296,7 @@ impl Inner {
                 Action::Write(ref mut expect) => {
                     let n = cmp::min(src.len(), expect.len());
 
-                    assert_eq!(&src[..n], &expect[..n]);
+                    (self.assert_callback)(&src[..n], &expect[..n]);
 
                     // Drop data that was matched
                     expect.drain(..n);
