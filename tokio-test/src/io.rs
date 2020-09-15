@@ -47,7 +47,7 @@ pub struct Handle {
 }
 
 /// Builds `Mock` instances.
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Builder {
     // Sequence of actions for the Mock to take
     actions: VecDeque<Action>,
@@ -64,13 +64,32 @@ enum Action {
     WriteError(Option<Arc<io::Error>>),
 }
 
-#[derive(Debug)]
 struct Inner {
     actions: VecDeque<Action>,
     waiting: Option<Instant>,
     sleep: Option<Delay>,
     read_wait: Option<Waker>,
     rx: mpsc::UnboundedReceiver<Action>,
+}
+
+impl std::fmt::Debug for Builder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Builder")
+            .field("actions", &self.actions)
+            .finish()
+    }
+}
+
+impl std::fmt::Debug for Inner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Inner")
+            .field("actions", &self.actions)
+            .field("waiting", &self.waiting)
+            .field("sleep", &self.sleep)
+            .field("read_wait", &self.read_wait)
+            .field("rx", &self.rx)
+            .finish()
+    }
 }
 
 impl Builder {
