@@ -47,7 +47,7 @@ pub struct Handle {
 }
 
 /// Builds `Mock` instances.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Builder {
     // Sequence of actions for the Mock to take
     actions: VecDeque<Action>,
@@ -92,10 +92,17 @@ impl std::fmt::Debug for Inner {
     }
 }
 
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl Builder {
     /// Return a new, empty `Builder.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            actions: VecDeque::new(),
+        }
     }
 
     /// Sequence a `read` operation.
